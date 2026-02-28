@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediAssist — AI Symptom Assessment Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F0F4F0;
+    --surface: #FFFFFF;
+    --surface2: #F7FAF7;
+    --green-deep: #1A3A2A;
+    --green-mid: #2D6A4F;
+    --green-accent: #40916C;
+    --green-light: #74C69D;
+    --green-pale: #D8F3DC;
+    --text: #1A2E1A;
+    --text-muted: #5A7A5A;
+    --border: #C8DEC8;
+    --shadow: rgba(26,58,42,0.10);
+    --user-bubble: #1A3A2A;
+    --ai-bubble: #FFFFFF;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-image: 
+      radial-gradient(ellipse at 20% 20%, rgba(116,198,157,0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(45,106,79,0.10) 0%, transparent 50%);
+  }
+
+  .app-wrapper {
+    width: 100%;
+    max-width: 780px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--green-deep);
+    border-radius: 20px 20px 0 0;
+    padding: 28px 36px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: rgba(116,198,157,0.10);
+  }
+
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; left: 30%;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: rgba(116,198,157,0.07);
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+
+  .logo-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--green-light), var(--green-accent));
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(116,198,157,0.3);
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: #FFFFFF;
+    letter-spacing: -0.3px;
+    line-height: 1;
+  }
+
+  .header-subtitle {
+    font-size: 12px;
+    color: var(--green-light);
+    margin-top: 4px;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(116,198,157,0.15);
+    border: 1px solid rgba(116,198,157,0.3);
+    border-radius: 30px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--green-light);
+    font-weight: 500;
+    position: relative; z-index: 1;
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    background: var(--green-light);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* DISCLAIMER BANNER */
+  .disclaimer {
+    background: #FFF8E1;
+    border-left: 3px solid #F59E0B;
+    padding: 10px 20px;
+    font-size: 12px;
+    color: #78520A;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* CHAT AREA */
+  .chat-container {
+    background: var(--surface2);
+    height: 440px;
+    overflow-y: auto;
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  .chat-container::-webkit-scrollbar { width: 4px; }
+  .chat-container::-webkit-scrollbar-track { background: transparent; }
+  .chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* MESSAGES */
+  .message {
+    display: flex;
+    gap: 10px;
+    animation: messageIn 0.3s ease both;
+    max-width: 88%;
+  }
+
+  @keyframes messageIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message.user { align-self: flex-end; flex-direction: row-reverse; }
+  .message.ai { align-self: flex-start; }
+
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .avatar.ai-avatar {
+    background: linear-gradient(135deg, var(--green-mid), var(--green-accent));
+    color: white;
+    font-size: 15px;
+  }
+
+  .avatar.user-avatar {
+    background: var(--green-deep);
+    color: white;
+    font-size: 14px;
+  }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .message.ai .bubble {
+    background: var(--ai-bubble);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 8px var(--shadow);
+    color: var(--text);
+  }
+
+  .message.user .bubble {
+    background: var(--user-bubble);
+    color: #FFFFFF;
+    border-bottom-right-radius: 4px;
+  }
+
+  /* TYPING INDICATOR */
+  .typing-indicator {
+    display: flex; gap: 5px; align-items: center;
+    padding: 14px 16px;
+  }
+
+  .typing-indicator span {
+    width: 7px; height: 7px;
+    background: var(--green-accent);
+    border-radius: 50%;
+    animation: typingBounce 1.2s infinite;
+  }
+
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* QUICK REPLIES */
+  .quick-replies {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 16px 28px 8px;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+  }
+
+  .quick-btn {
+    background: var(--green-pale);
+    border: 1px solid var(--green-light);
+    color: var(--green-deep);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .quick-btn:hover {
+    background: var(--green-mid);
+    color: white;
+    border-color: var(--green-mid);
+    transform: translateY(-1px);
+  }
+
+  /* INPUT AREA */
+  .input-area {
+    background: var(--surface);
+    border-radius: 0 0 20px 20px;
+    padding: 16px 20px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .input-wrapper {
+    flex: 1;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    align-items: flex-end;
+    padding: 10px 14px;
+    transition: border-color 0.2s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--green-accent);
+    box-shadow: 0 0 0 3px rgba(64,145,108,0.12);
+  }
+
+  textarea {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14.5px;
+    color: var(--text);
+    resize: none;
+    max-height: 120px;
+    line-height: 1.5;
+    min-height: 24px;
+  }
+
+  textarea::placeholder { color: var(--text-muted); }
+
+  .send-btn {
+    width: 46px; height: 46px;
+    background: var(--green-deep);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    color: white;
+    font-size: 18px;
+  }
+
+  .send-btn:hover { background: var(--green-accent); transform: scale(1.05); }
+  .send-btn:active { transform: scale(0.97); }
+  .send-btn:disabled { background: var(--border); cursor: not-allowed; transform: none; }
+
+  /* FOOTER */
+  .footer-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 12px;
+    opacity: 0.7;
+  }
+
+  /* Formatted AI response */
+  .bubble ul { padding-left: 18px; margin-top: 6px; }
+  .bubble li { margin-bottom: 4px; }
+  .bubble strong { color: var(--green-deep); }
+  .bubble p { margin-bottom: 6px; }
+  .bubble p:last-child { margin-bottom: 0; }
+</style>
+</head>
+<body>
+
+<div class="app-wrapper">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-icon">🩺</div>
+      <div>
+        <div class="header-title">MediAssist</div>
+        <div class="header-subtitle">AI Symptom Assessment Tool</div>
+      </div>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      AI Online
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    ⚠️ <strong>Educational Tool Only:</strong> This tool provides general health information and is not a substitute for professional medical advice, diagnosis, or treatment.
+  </div>
+
+  <div class="chat-container" id="chatContainer">
+    <!-- Messages appear here -->
+  </div>
+
+  <div class="quick-replies" id="quickReplies">
+    <button class="quick-btn" onclick="sendQuick('I have a headache and fever')">🤒 Headache & Fever</button>
+    <button class="quick-btn" onclick="sendQuick('I have chest pain and shortness of breath')">💓 Chest Pain</button>
+    <button class="quick-btn" onclick="sendQuick('I have stomach pain and nausea')">🤢 Stomach Pain</button>
+    <button class="quick-btn" onclick="sendQuick('I have a cough and sore throat')">😷 Cough & Cold</button>
+    <button class="quick-btn" onclick="sendQuick('I feel very tired and fatigued all the time')">😴 Fatigue & Tiredness</button>
+  </div>
+
+  <div class="input-area">
+    <div class="input-wrapper">
+      <textarea 
+        id="userInput" 
+        placeholder="Describe your symptoms or ask a health question..." 
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+    </div>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+  </div>
+</div>
+
+<div class="footer-note">Built by Reghan Bose · Biomedical Engineering + AI Integration · Portfolio Project</div>
+
+<script>
+const SYSTEM_PROMPT = `You are MediAssist, a knowledgeable and empathetic AI health information assistant. You have been built by Reghan Bose, a Biomedical Engineering graduate with expertise in medical device regulatory affairs (ISO 13485, EU MDR 2017/745).
+
+Your role:
+- Help users understand their symptoms in a clear, structured way
+- Explain what symptoms may indicate in general terms
+- Always clarify you are providing educational information, not medical diagnosis
+- Recommend seeing a doctor for all symptom queries - always
+- Be warm, clear, and professional
+
+CRITICAL RULES - strictly follow these:
+- NEVER mention, suggest, or name any specific medication, drug, tablet, syrup, or supplement by name - not even common ones
+- NEVER suggest any dosage or treatment
+- Instead, always say things like "a doctor may recommend appropriate medication" or "consult a pharmacist or physician for medication guidance"
+- You can explain what type of condition something may be (viral, bacterial, inflammatory etc.) but never what to take for it
+
+Response format:
+- Use short paragraphs
+- Use bullet points for symptom breakdowns
+- Bold key terms
+- Keep responses concise (150-200 words)
+- Always end with a clear recommendation to consult a qualified healthcare professional
+
+Never diagnose definitively. Always say "this may suggest" or "commonly associated with" rather than "you have X".`;
+
+let conversationHistory = [];
+let isLoading = false;
+
+function formatMessage(text) {
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  const lines = text.split('\n');
+  let html = '';
+  let inList = false;
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) { if (inList) { html += '</ul>'; inList = false; } continue; }
+    if (line.startsWith('- ') || line.startsWith('• ')) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${line.substring(2)}</li>`;
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p>${line}</p>`;
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
+}
+
+function addMessage(role, content, isHTML = false) {
+  const container = document.getElementById('chatContainer');
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  const avatar = role === 'ai' 
+    ? `<div class="avatar ai-avatar">🩺</div>`
+    : `<div class="avatar user-avatar">👤</div>`;
+  const bubbleContent = isHTML ? content : `<p>${content}</p>`;
+  div.innerHTML = `${avatar}<div class="bubble">${bubbleContent}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+
+function showTyping() {
+  const container = document.getElementById('chatContainer');
+  const div = document.createElement('div');
+  div.className = 'message ai';
+  div.id = 'typingIndicator';
+  div.innerHTML = `
+    <div class="avatar ai-avatar">🩺</div>
+    <div class="bubble">
+      <div class="typing-indicator">
+        <span></span><span></span><span></span>
+      </div>
+    </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+async function callClaude(userMessage) {
+  conversationHistory.push({ role: "user", content: userMessage });
+  
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": "PASTE_YOUR_KEY_HERE",
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      system: SYSTEM_PROMPT,
+      messages: conversationHistory
+    })
+  });
+
+  const data = await response.json();
+  const assistantMessage = data.content[0].text;
+  conversationHistory.push({ role: "assistant", content: assistantMessage });
+  return assistantMessage;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text || isLoading) return;
+
+  isLoading = true;
+  document.getElementById('sendBtn').disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('quickReplies').style.display = 'none';
+
+  addMessage('user', text);
+  showTyping();
+
+  try {
+    const reply = await callClaude(text);
+    removeTyping();
+    addMessage('ai', formatMessage(reply), true);
+  } catch (err) {
+    removeTyping();
+    addMessage('ai', formatMessage("I'm having trouble connecting right now. Please check your connection and try again."), true);
+  }
+
+  isLoading = false;
+  document.getElementById('sendBtn').disabled = false;
+  input.focus();
+}
+
+function sendQuick(text) {
+  document.getElementById('userInput').value = text;
+  sendMessage();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// Initial greeting
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const greeting = `Hello! I'm **MediAssist**, your AI health information assistant.\n\nI can help you:\n- Understand what your symptoms may indicate\n- Learn about common conditions in plain language\n- Know when to seek professional medical care\n\nPlease describe your symptoms or ask a health question to get started. Remember, I provide **educational information only** — always consult a qualified doctor for medical advice and treatment.`;
+    addMessage('ai', formatMessage(greeting), true);
+  }, 400);
+});
+</script>
+</body>
+</html>
